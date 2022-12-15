@@ -1,61 +1,65 @@
 import java.util.*;
 import java.util.concurrent.*;
 
-
 public class Main {
 
     public static final Map<Integer, Integer> SIZE_TO_FREQ = new HashMap<>();
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
 
-        Callable<String> myCall = new Generate();
+        Runnable myRun = new Generate();
 
-        ExecutorService threadPool = Executors.newFixedThreadPool(100);
+        ExecutorService threadPool = Executors.newFixedThreadPool(1000);
 
-        for (int i = 0; i < 100; i++) {
-            threadPool.submit(myCall);
+        for (int i = 0; i < 1000; i++) {
+            threadPool.submit(myRun);
         }
-
-        threadPool.shutdown();
-
-
-        ExecutorService threadPool2 = Executors.newFixedThreadPool(100);
 
         int maxValue = 0;
         int maxKey = 0;
 
-        synchronized (SIZE_TO_FREQ) {
-            for (Map.Entry<Integer, Integer> entry : SIZE_TO_FREQ.entrySet()) {
-                if (entry.getValue() > maxValue) {
-                    maxValue = entry.getValue();
-                    maxKey = entry.getKey();
-                }
-                threadPool2.submit(() ->
-                {
-                    SIZE_TO_FREQ.put(entry.getKey(), entry.getValue() + 1);
-                });
+        for (Map.Entry<Integer, Integer> entry : SIZE_TO_FREQ.entrySet()) {
+            if (entry.getValue() > maxValue) {
+                maxValue = entry.getValue();
+                maxKey = entry.getKey();
             }
-
         }
-        System.out.println("Самое частое кол-во повторений " + maxKey + " (встретилось " + SIZE_TO_FREQ.get(maxKey) + " раз)");
 
-        threadPool2.shutdown();
+        System.out.println("Самое частое кол-во повторений " + maxKey + " (встретилось " + SIZE_TO_FREQ.get(maxKey) + " раз)");
 
 
         System.out.println("Другие размеры");
 
-        for (Map.Entry<Integer, Integer> entry : SIZE_TO_FREQ.entrySet()) {
-            System.out.println(entry.getKey() + " (" + entry.getValue() + " раз)");
-        }
+        SIZE_TO_FREQ
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .forEach(a -> System.out.println("- " + a.getKey() + " (" + a.getValue() + " раз)"));
+
+
+        threadPool.shutdown();
+
+
+        /*
+        Чужой способо написания кода, по нахождению максимума в Map.
+        Не обращать внимания, пусть будет тут.
+
+        Map.Entry<Integer, Integer> max = SIZE_TO_FREQ
+                .entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue())
+                .get();
+        System.out.println(max.getKey() + " " + max.getValue());
+         */
 
     }
 
 }
 
 
-class Generate implements Callable<String> {
+class Generate implements Runnable {
     @Override
-    public String call() throws Exception {
+    public void run() {
 
         String course = "RLRFR";
 
@@ -69,13 +73,13 @@ class Generate implements Callable<String> {
             }
         }
 
-        if (Main.SIZE_TO_FREQ.containsKey(countR)) {
-            Main.SIZE_TO_FREQ.put(countR, Main.SIZE_TO_FREQ.get(countR) + 1);
-        } else {
-            Main.SIZE_TO_FREQ.put(countR, 1);
+        synchronized (Main.SIZE_TO_FREQ) {
+            if (Main.SIZE_TO_FREQ.containsKey(countR)) {
+                Main.SIZE_TO_FREQ.put(countR, Main.SIZE_TO_FREQ.get(countR) + 1);
+            } else {
+                Main.SIZE_TO_FREQ.put(countR, 1);
+            }
         }
-
-        return route + " -> " + countR;
     }
 }
 
