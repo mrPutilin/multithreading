@@ -7,37 +7,17 @@ public class Leader {
 
         List<Thread> list = new ArrayList<>();
 
-        Thread fillMap = new Thread(() -> {
-            for (int i = 0; i < 100; i++) {
-                String course = "RLRFR";
-                Random random = new Random();
-                StringBuilder route = new StringBuilder();
-                int countR = 0;
-                for (int j = 0; j < 100; j++) {
-                    route.append(course.charAt(random.nextInt(course.length())));
-                    if (route.charAt(j) == 'R') {
-                        countR++;
-                    }
-                }
-
-                synchronized (SIZE_TO_FREE) {
-                    if (SIZE_TO_FREE.containsKey(countR)) {
-                        SIZE_TO_FREE.put(countR, SIZE_TO_FREE.get(countR) + 1);
-                    } else {
-                        SIZE_TO_FREE.put(countR, 1);
-                    }
-                    System.out.println("Текущая частота " + SIZE_TO_FREE.get(countR));
-                    SIZE_TO_FREE.notify();
-                }
-            }
-        });
+        Thread fillMap = new FillMap();
         fillMap.start();
+        list.add(fillMap);
 
-        Thread printLeader = new Thread(new Print());
-        list.add(printLeader);
+
+        Thread printLeader = new Print();
         printLeader.start();
 
-        printLeader.join();
+        for (Thread f : list) {
+            f.join();
+        }
 
         printLeader.interrupt();
 
@@ -45,18 +25,16 @@ public class Leader {
 
 }
 
-class Print implements Runnable {
+class Print extends Thread {
     @Override
     public void run() {
-
         int biggestValue = 0;
-
         while (!Thread.interrupted()) {
             synchronized (Leader.SIZE_TO_FREE) {
                 try {
                     Leader.SIZE_TO_FREE.wait();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    return;
                 }
                 Map.Entry<Integer, Integer> max = Leader.SIZE_TO_FREE
                         .entrySet()
@@ -67,6 +45,33 @@ class Print implements Runnable {
                     biggestValue = max.getValue();
                     System.out.println("Лидер среди частот на данный момент " + max.getKey() + " встретился " + max.getValue() + " раз");
                 }
+            }
+        }
+    }
+}
+
+class FillMap extends Thread {
+    @Override
+    public void run() {
+        for (int i = 0; i < 1000; i++) {
+            String course = "RLRFR";
+            Random random = new Random();
+            StringBuilder route = new StringBuilder();
+            int countR = 0;
+            for (int j = 0; j < 100; j++) {
+                route.append(course.charAt(random.nextInt(course.length())));
+                if (route.charAt(j) == 'R') {
+                    countR++;
+                }
+            }
+
+            synchronized (Leader.SIZE_TO_FREE) {
+                if (Leader.SIZE_TO_FREE.containsKey(countR)) {
+                    Leader.SIZE_TO_FREE.put(countR, Leader.SIZE_TO_FREE.get(countR) + 1);
+                } else {
+                    Leader.SIZE_TO_FREE.put(countR, 1);
+                }
+                Leader.SIZE_TO_FREE.notify();
             }
         }
     }
